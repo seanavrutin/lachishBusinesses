@@ -17,3 +17,5 @@ services:
       - ./auth:/app/auth
       # Provide the Firebase service-account key (read-only).
       - ./secrets:/app/secrets:ro
+      # Persist the audit log on the host so it survives container re-creates.
+      - ./logs:/app/logs
