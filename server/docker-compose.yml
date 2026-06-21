@@ -1,0 +1,19 @@
+services:
+  server:
+    build: .
+    container_name: lachish-businesses-server
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # Override paths so they point at the mounted volumes inside the container.
+      - NODE_ENV=production
+      - WA_AUTH_DIR=/app/auth
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/serviceAccount.json
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persist the WhatsApp session so re-deploys don't force re-linking.
+      - ./auth:/app/auth
+      # Provide the Firebase service-account key (read-only).
+      - ./secrets:/app/secrets:ro

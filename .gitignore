@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# WhatsApp (Baileys) session state - NEVER commit
+server/auth/
+auth/
+
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+server/secrets/
+secrets/
+*serviceAccount*.json
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
