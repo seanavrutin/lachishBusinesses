@@ -11,7 +11,8 @@ services:
       - WA_AUTH_DIR=/app/auth
       - GOOGLE_APPLICATION_CREDENTIALS=/app/secrets/serviceAccount.json
     ports:
-      - "3000:3000"
+      # Host:container, both driven by PORT in .env (defaults to 3000).
+      - "${PORT:-3000}:${PORT:-3000}"
     volumes:
       # Persist the WhatsApp session so re-deploys don't force re-linking.
       - ./auth:/app/auth
