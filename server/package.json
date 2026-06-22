@@ -19,7 +19,9 @@
   },
   "dependencies": {
     "@google/genai": "^2.9.0",
+    "@types/cors": "^2.8.19",
     "@whiskeysockets/baileys": "^7.0.0-rc13",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase-admin": "^13.10.0",

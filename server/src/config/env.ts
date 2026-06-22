@@ -11,6 +11,9 @@ const schema = z.object({
     .enum(["fatal", "error", "warn", "info", "debug", "trace"])
     .default("debug"),
   NODE_ENV: z.string().default("development"),
+  // Allowed CORS origins for the web client. "*" allows any origin; otherwise a
+  // comma-separated allowlist, e.g. "https://lachish.web.app,http://localhost:5173".
+  CORS_ORIGINS: z.string().default("*"),
 
   // WhatsApp
   WA_AUTH_DIR: z.string().default("./auth"),
