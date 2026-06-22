@@ -27,7 +27,7 @@ export const MOSHAVIM: MoshavEntry[] = [
   { name: 'ניר ח"ן', lat: 31.6261, lng: 34.74, aliases: ["nir chen", "nir hen", "nir han"] },
   { name: "עוצם", lat: 31.595, lng: 34.733, aliases: ["otzem"] },
   { name: "שדה דוד", lat: 31.61, lng: 34.683, aliases: ["sde david", "sdeh david"] },
-  { name: "שדה משה", lat: 31.583, lng: 34.7, aliases: ["sde moshe", "sdeh moshe"] },
+  { name: "שדה משה", lat: 31.6106, lng: 34.8022, aliases: ["sde moshe", "sdeh moshe"] },
   { name: "שחר", lat: 31.604, lng: 34.708, aliases: ["shahar", "sahar"] },
   { name: "שקף", lat: 31.55, lng: 34.833, aliases: ["shekef"] },
   { name: "תלמים", lat: 31.6072, lng: 34.6669, aliases: ["telamim", "telamin"] },

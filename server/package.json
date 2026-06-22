@@ -15,7 +15,9 @@
     "typecheck": "tsc --noEmit",
     "check:firebase": "tsx src/scripts/checkFirebase.ts",
     "test:extract": "tsx src/scripts/testExtract.ts",
-    "probe:media": "tsx src/scripts/probeMedia.ts"
+    "probe:media": "tsx src/scripts/probeMedia.ts",
+    "verify:moshavim": "tsx src/scripts/verifyMoshavim.ts",
+    "regeocode": "tsx src/scripts/regeocodeBusinesses.ts"
   },
   "dependencies": {
     "@google/genai": "^2.9.0",
