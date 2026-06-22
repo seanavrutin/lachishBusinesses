@@ -77,14 +77,43 @@ docker compose up --build
 
 - `raw_messages/{messageId}` - ingestion log + work queue (`status`: pending/processing/done/failed).
 - `businesses/{id}` - extracted businesses: `name`, Hebrew `categories[]`, `description`,
-  `openingHours` (`raw` text + normalized `weekly` per-day ranges), `phone`,
+  `openingHours` (raw text, verbatim from the post), `phone`,
   `location.{raw,moshav,address,lat,lng,geohash}`, latest `images[]` + `lastRawText`,
   `lastPostedAt` (WhatsApp post time = "info last updated"), `lastUpdatedAt` (server write),
   `extractionConfidence`, and `status` (`active`/`needs_review`).
 
+## Geocoding (map placement)
+
+Each business is placed on the map in priority order:
+
+1. **Real street address** (e.g. `תירוש 37, שדה משה`) -> geocoded to an exact point by the
+   configured provider. A result outside the Lachish region is rejected as a bad match.
+2. **Moshav name only** -> the verified moshav-center gazetteer in `src/geocode/moshavim.ts`.
+
+For accurate Israeli addresses use Google (`GEOCODER_PROVIDER=google`). One-time setup:
+
+1. [Google Cloud Console](https://console.cloud.google.com/) -> pick a project (you can reuse the
+   one your Gemini key belongs to, or create a new one).
+2. **Enable billing** on that project (Billing -> link a billing account). Geocoding requires it,
+   but this volume sits well within the free monthly credit.
+3. **APIs & Services -> Library** -> search **"Geocoding API"** -> **Enable**.
+4. **APIs & Services -> Credentials** -> **Create credentials -> API key**. Then **Restrict key** ->
+   *API restrictions* -> allow only **Geocoding API**. (This is a Cloud API key - different from the
+   AI Studio Gemini key.)
+5. In `server/.env` set `GEOCODER_PROVIDER=google` and `GEOCODING_API_KEY=<the key>`.
+
+After changing the gazetteer or the provider, fix already-saved records:
+
+```bash
+npm run regeocode          # re-geocode every business and update Firestore
+npm run verify:moshavim    # audit gazetteer entries against OpenStreetMap
+```
+
+If no key is set, address geocoding simply falls back to the moshav center - nothing breaks.
+
 ## Notes
 
 - Extraction = one multimodal Gemini call per message (text + image), validated with zod.
-- Moshav coordinates come from a small static gazetteer in `src/geocode/moshavim.ts` (approximate;
-  refine as needed). Full street addresses optionally use a geocoder.
+- Moshav coordinates are a small static gazetteer in `src/geocode/moshavim.ts`, verified against
+  OpenStreetMap/Wikipedia; they serve as the fallback when a post has no precise street address.
 - The queries use single-field filters to avoid requiring Firestore composite indexes.
