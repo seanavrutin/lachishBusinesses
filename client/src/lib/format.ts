@@ -47,6 +47,13 @@ export function absoluteDate(value: ApiTimestamp | undefined): string | null {
   return new Intl.DateTimeFormat("he-IL", { dateStyle: "long", timeStyle: "short" }).format(date);
 }
 
+/** Compact date label for lists, e.g. "22 ביוני 2026". */
+export function shortDate(value: ApiTimestamp | undefined): string | null {
+  const date = toDate(value);
+  if (!date) return null;
+  return new Intl.DateTimeFormat("he-IL", { dateStyle: "medium" }).format(date);
+}
+
 /** "freshness" used to color the updated badge: businesses here can be flaky. */
 export function freshness(value: ApiTimestamp | undefined): "fresh" | "stale" | "old" | "unknown" {
   const date = toDate(value);

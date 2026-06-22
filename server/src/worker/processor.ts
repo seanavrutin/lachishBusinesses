@@ -10,8 +10,10 @@ import {
 } from "../store/businesses.repo.js";
 import { fetchProcessable, updateRawMessage } from "../store/rawMessages.repo.js";
 import { downloadImage, mimeForPath } from "../store/storage.js";
-import type { Business, RawMessage } from "../types/index.js";
+import type { Business, RawMessage, RecentPost } from "../types/index.js";
 import { findMatch } from "./dedupe.js";
+
+const MAX_RECENT_POSTS = 5;
 
 let running = false;
 
@@ -110,6 +112,51 @@ async function processOne(message: RawMessage): Promise<void> {
   }
 }
 
+function toMillis(value: FirebaseFirestore.Timestamp | Date | undefined): number {
+  if (!value) return 0;
+  if (value instanceof Date) return value.getTime();
+  if (typeof (value as FirebaseFirestore.Timestamp).toMillis === "function") {
+    return (value as FirebaseFirestore.Timestamp).toMillis();
+  }
+  return 0;
+}
+
+function postFromMessage(message: RawMessage): RecentPost {
+  return {
+    text: message.text || undefined,
+    images: message.imagePaths ?? [],
+    postedAt: new Date(message.waTimestamp),
+    sourceMessageId: message.id,
+  };
+}
+
+/**
+ * Recover a single history entry from a legacy business that predates recentPosts,
+ * so the first update after this change doesn't lose the previously stored post.
+ */
+function seedFromLegacy(existing: Business | null): RecentPost[] {
+  if (!existing || existing.recentPosts?.length) return existing?.recentPosts ?? [];
+  if (!existing.lastRawText && !(existing.images?.length)) return [];
+  return [
+    {
+      text: existing.lastRawText || undefined,
+      images: existing.images ?? [],
+      postedAt: existing.lastPostedAt ?? existing.lastUpdatedAt ?? new Date(0),
+      sourceMessageId: existing.lastSourceMessageId,
+    },
+  ];
+}
+
+/** Prepends the new post, de-dupes by source message, and keeps the newest few. */
+function mergeRecentPosts(existing: RecentPost[], post: RecentPost): RecentPost[] {
+  const deduped = existing.filter(
+    (p) => !post.sourceMessageId || p.sourceMessageId !== post.sourceMessageId,
+  );
+  return [post, ...deduped]
+    .sort((a, b) => toMillis(b.postedAt) - toMillis(a.postedAt))
+    .slice(0, MAX_RECENT_POSTS);
+}
+
 function buildLocation(extraction: BusinessExtraction, geo: Awaited<ReturnType<typeof geocode>>) {
   return {
     raw: extraction.location.raw ?? undefined,
@@ -135,6 +182,7 @@ async function createNew(
     location: buildLocation(extraction, geo),
     images: message.imagePaths ?? [],
     lastRawText: message.text || undefined,
+    recentPosts: [postFromMessage(message)],
     sourceGroupId: message.groupId,
     lastSourceMessageId: message.id,
     lastPostedAt: new Date(message.waTimestamp),
@@ -166,6 +214,7 @@ async function applyUpdate(
   if ((message.imagePaths ?? []).length > 0) patch.images = message.imagePaths;
   // Keep the latest post's raw text, if present.
   if (message.text) patch.lastRawText = message.text;
+  patch.recentPosts = mergeRecentPosts(seedFromLegacy(existing), postFromMessage(message));
   if (extraction.description) patch.description = extraction.description;
   if (extraction.openingHoursRaw) patch.openingHours = extraction.openingHoursRaw;
   if (extraction.phone) patch.phone = extraction.phone;

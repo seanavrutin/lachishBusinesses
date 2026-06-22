@@ -42,6 +42,12 @@ export async function fetchProcessable(limit: number): Promise<RawMessage[]> {
     .slice(0, limit);
 }
 
+/** All raw messages already attributed to a given business (any status). */
+export async function findByBusinessId(businessId: string): Promise<RawMessage[]> {
+  const snap = await col().where("businessId", "==", businessId).get();
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as RawMessage) }));
+}
+
 export async function updateRawMessage(
   id: string,
   patch: Partial<RawMessage>,

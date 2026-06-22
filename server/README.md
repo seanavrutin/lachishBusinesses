@@ -125,6 +125,22 @@ publish ports, so it won't clash with the running server.
 
 If no key is set, address geocoding simply falls back to the moshav center - nothing breaks.
 
+## Recent posts history
+
+Each business keeps its **last 5 posts** (text + images + date) under `recentPosts`, newest
+first, surfaced by the client as the "פרסומים אחרונים" section. New posts accumulate
+automatically as messages are processed.
+
+To populate history for businesses that existed before this feature, rebuild `recentPosts`
+from the `raw_messages` already stored for each business:
+
+```bash
+npm run backfill:posts                                          # local dev
+docker compose run --rm server node dist/scripts/backfillRecentPosts.js   # Docker-only host
+```
+
+It's safe to re-run (it overwrites `recentPosts` each time).
+
 ## Notes
 
 - Extraction = one multimodal Gemini call per message (text + image), validated with zod.

@@ -9,9 +9,9 @@ import type { Business } from "../../types/index.js";
 
 export const businessesRouter = Router();
 
-async function withImageUrls(business: Business): Promise<Business & { imageUrls: string[] }> {
-  const imageUrls = await Promise.all(
-    (business.images ?? []).map(async (path) => {
+async function signPaths(paths: string[]): Promise<string[]> {
+  const urls = await Promise.all(
+    paths.map(async (path) => {
       try {
         return await getSignedUrl(path);
       } catch {
@@ -19,7 +19,18 @@ async function withImageUrls(business: Business): Promise<Business & { imageUrls
       }
     }),
   );
-  return { ...business, imageUrls: imageUrls.filter(Boolean) };
+  return urls.filter(Boolean);
+}
+
+async function withImageUrls(business: Business): Promise<Business & { imageUrls: string[] }> {
+  const imageUrls = await signPaths(business.images ?? []);
+  const recentPosts = await Promise.all(
+    (business.recentPosts ?? []).map(async (post) => ({
+      ...post,
+      imageUrls: await signPaths(post.images ?? []),
+    })),
+  );
+  return { ...business, imageUrls, recentPosts };
 }
 
 businessesRouter.get("/", async (req, res) => {

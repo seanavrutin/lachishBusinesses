@@ -16,6 +16,16 @@ export interface BusinessLocation {
 
 export type BusinessStatus = "active" | "needs_review";
 
+export interface RecentPost {
+  text?: string;
+  /** Firebase Storage paths of this post's image(s). */
+  images?: string[];
+  /** Signed, ready-to-render URLs the API derives from `images`. */
+  imageUrls?: string[];
+  postedAt?: ApiTimestamp;
+  sourceMessageId?: string;
+}
+
 export interface Business {
   id: string;
   name: string;
@@ -30,6 +40,8 @@ export interface Business {
   /** Signed, ready-to-render URLs the API derives from `images`. */
   imageUrls?: string[];
   lastRawText?: string;
+  /** Up to the last 5 posts about this business, newest first. */
+  recentPosts?: RecentPost[];
   firstSeenAt?: ApiTimestamp;
   lastUpdatedAt?: ApiTimestamp;
   /** WhatsApp timestamp of the latest post - the meaningful "info last updated". */

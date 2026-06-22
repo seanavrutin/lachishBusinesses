@@ -3,37 +3,57 @@ export type ViewMode = "list" | "map";
 interface HeaderProps {
   view: ViewMode;
   onViewChange: (view: ViewMode) => void;
-  onOpenFilters: () => void;
-  activeFilterCount: number;
+  query: string;
+  onQueryChange: (q: string) => void;
 }
 
-export default function Header({ view, onViewChange, onOpenFilters, activeFilterCount }: HeaderProps) {
+export default function Header({ view, onViewChange, query, onQueryChange }: HeaderProps) {
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">🌾</span>
-          <div className="leading-tight">
-            <h1 className="text-lg font-extrabold text-brand-800">עסקים בלכיש</h1>
-            <p className="text-[0.7rem] text-gray-500">עסקים מקומיים באזור</p>
-          </div>
+      <div className="mx-auto max-w-3xl px-4">
+        <div className="flex items-center justify-center gap-2 py-2.5">
+          <span className="text-xl" aria-hidden>
+            🌾
+          </span>
+          <h1 className="text-lg font-extrabold text-brand-800">עסקים בלכיש</h1>
         </div>
 
-        <div className="ms-auto flex items-center gap-2">
-          <ViewToggle view={view} onViewChange={onViewChange} />
-          <button
-            type="button"
-            onClick={onOpenFilters}
-            className="relative inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-          >
-            <span>סינון</span>
-            <span aria-hidden>⚙️</span>
-            {activeFilterCount > 0 && (
-              <span className="absolute -top-1.5 -start-1.5 grid h-5 w-5 place-items-center rounded-full bg-brand-600 text-[0.65rem] font-bold text-white">
-                {activeFilterCount}
-              </span>
+        <div className="flex items-center gap-2 pb-3">
+          <div className="relative flex-1">
+            <span className="pointer-events-none absolute inset-y-0 start-3 flex items-center text-gray-400" aria-hidden>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </span>
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => onQueryChange(e.target.value)}
+              placeholder="חיפוש עסק, תיאור, קטגוריה..."
+              className="w-full rounded-full border border-gray-300 bg-gray-50 py-2 pe-9 ps-9 text-sm outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-100"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => onQueryChange("")}
+                aria-label="ניקוי חיפוש"
+                className="absolute inset-y-0 end-2 flex items-center text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
             )}
-          </button>
+          </div>
+
+          <ViewToggle view={view} onViewChange={onViewChange} />
         </div>
       </div>
     </header>
@@ -42,7 +62,7 @@ export default function Header({ view, onViewChange, onOpenFilters, activeFilter
 
 function ViewToggle({ view, onViewChange }: { view: ViewMode; onViewChange: (v: ViewMode) => void }) {
   return (
-    <div className="inline-flex rounded-full bg-gray-100 p-1 text-sm font-medium">
+    <div className="inline-flex shrink-0 rounded-full bg-gray-100 p-1 text-sm font-medium">
       <ToggleButton active={view === "list"} onClick={() => onViewChange("list")} label="רשימה" icon="☰" />
       <ToggleButton active={view === "map"} onClick={() => onViewChange("map")} label="מפה" icon="🗺️" />
     </div>

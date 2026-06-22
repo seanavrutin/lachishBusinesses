@@ -9,6 +9,16 @@ export interface BusinessLocation {
 
 export type BusinessStatus = "active" | "needs_review";
 
+/** A single WhatsApp post about a business, kept for the "recent posts" history. */
+export interface RecentPost {
+  text?: string;
+  /** Storage paths of this post's image(s). */
+  images?: string[];
+  /** WhatsApp timestamp of the post. */
+  postedAt: FirebaseFirestore.Timestamp | Date;
+  sourceMessageId?: string;
+}
+
 export interface Business {
   id?: string;
   name: string;
@@ -22,6 +32,8 @@ export interface Business {
   images: string[];
   /** Raw text of the latest post about this business. */
   lastRawText?: string;
+  /** Up to the last 5 posts about this business, newest first. */
+  recentPosts?: RecentPost[];
   sourceGroupId?: string;
   lastSourceMessageId?: string;
   firstSeenAt?: FirebaseFirestore.Timestamp | Date;

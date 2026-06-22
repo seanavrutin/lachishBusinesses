@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchBusinesses } from "../lib/api";
+import { fetchBusinesses, getCachedBusinesses } from "../lib/api";
 import type { Business } from "../types";
 
 interface BusinessesState {
@@ -10,18 +10,27 @@ interface BusinessesState {
 }
 
 export function useBusinesses(): BusinessesState {
-  const [businesses, setBusinesses] = useState<Business[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [businesses, setBusinesses] = useState<Business[]>(() => getCachedBusinesses() ?? []);
+  const [loading, setLoading] = useState(() => getCachedBusinesses() == null);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
+  // reload() forces a fresh server fetch (e.g. pull-to-refresh / retry button).
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   useEffect(() => {
+    const force = nonce > 0;
+    const cached = getCachedBusinesses();
+    if (!force && cached) {
+      setBusinesses(cached);
+      setLoading(false);
+      return;
+    }
+
     const controller = new AbortController();
     setLoading(true);
     setError(null);
-    fetchBusinesses(controller.signal)
+    fetchBusinesses(controller.signal, force)
       .then((data) => setBusinesses(data))
       .catch((err: unknown) => {
         if (controller.signal.aborted) return;

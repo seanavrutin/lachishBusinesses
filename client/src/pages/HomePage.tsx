@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import Header, { type ViewMode } from "../components/Header";
-import CategoryChips from "../components/CategoryChips";
-import FilterSheet from "../components/FilterSheet";
+import FilterTabs from "../components/FilterTabs";
 import BusinessList from "../components/BusinessList";
 import MapView from "../components/MapView";
 import { Spinner } from "../components/ui";
@@ -23,7 +22,6 @@ export default function HomePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [moshav, setMoshav] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [sheetOpen, setSheetOpen] = useState(false);
 
   const categories = useMemo(() => deriveCategories(businesses), [businesses]);
   const moshavim = useMemo(
@@ -52,33 +50,19 @@ export default function HomePage() {
       return next;
     });
 
-  const clearAll = () => {
-    setSelected(new Set());
-    setMoshav(null);
-    setQuery("");
-  };
-
-  const activeFilterCount = selected.size + (moshav ? 1 : 0) + (query ? 1 : 0);
-
   return (
     <div className="flex h-[100dvh] flex-col overflow-hidden">
-      <Header
-        view={view}
-        onViewChange={setView}
-        onOpenFilters={() => setSheetOpen(true)}
-        activeFilterCount={activeFilterCount}
-      />
+      <Header view={view} onViewChange={setView} query={query} onQueryChange={setQuery} />
 
-      <div className="border-b border-gray-100 bg-white">
-        <div className="mx-auto max-w-3xl">
-          <CategoryChips
-            categories={categories}
-            selected={selected}
-            onToggle={toggleCategory}
-            onClear={() => setSelected(new Set())}
-          />
-        </div>
-      </div>
+      <FilterTabs
+        categories={categories}
+        selected={selected}
+        onToggleCategory={toggleCategory}
+        onClearCategories={() => setSelected(new Set())}
+        moshavim={moshavim}
+        moshav={moshav}
+        onMoshavChange={setMoshav}
+      />
 
       <main className="relative min-h-0 flex-1">
         {loading ? (
@@ -104,21 +88,6 @@ export default function HomePage() {
           <MapView businesses={filtered} />
         )}
       </main>
-
-      <FilterSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        categories={categories}
-        selected={selected}
-        onToggleCategory={toggleCategory}
-        moshavim={moshavim}
-        moshav={moshav}
-        onMoshavChange={setMoshav}
-        query={query}
-        onQueryChange={setQuery}
-        onClearAll={clearAll}
-        resultCount={filtered.length}
-      />
     </div>
   );
 }

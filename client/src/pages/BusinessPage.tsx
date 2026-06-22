@@ -1,33 +1,39 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { MapContainer, Marker, TileLayer } from "react-leaflet";
-import L from "leaflet";
-import { fetchBusiness } from "../lib/api";
-import type { Business } from "../types";
+import { fetchBusiness, getCachedBusiness } from "../lib/api";
+import type { Business, RecentPost } from "../types";
 import { styleForBusiness } from "../lib/categories";
-import { absoluteDate, relativeTime } from "../lib/format";
+import { absoluteDate, relativeTime, shortDate } from "../lib/format";
+import { waLink } from "../lib/links";
 import { CategoryTag, Spinner, StatusBadge, UpdatedBadge } from "../components/ui";
+import { NavButtons } from "../components/NavButtons";
 
-function waLink(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  const intl = digits.startsWith("0") ? `972${digits.slice(1)}` : digits;
-  return `https://wa.me/${intl}`;
-}
-
-function mapsQuery(b: Business): string {
-  return encodeURIComponent([b.name, b.location?.address, b.location?.moshav].filter(Boolean).join(", "));
+interface LightboxState {
+  images: string[];
+  index: number;
 }
 
 export default function BusinessPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [business, setBusiness] = useState<Business | null>(() => (id ? getCachedBusiness(id) : null));
+  const [loading, setLoading] = useState(() => (id ? getCachedBusiness(id) == null : true));
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
+
+    // Served instantly from the session cache (usually populated by the list view).
+    const cached = getCachedBusiness(id);
+    if (cached) {
+      setBusiness(cached);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     const controller = new AbortController();
+    setBusiness(null);
     setLoading(true);
     setError(null);
     fetchBusiness(id, controller.signal)
@@ -75,18 +81,35 @@ export default function BusinessPage() {
 function BusinessDetail({ business }: { business: Business }) {
   const { emoji, color } = styleForBusiness(business.categories ?? []);
   const images = business.imageUrls ?? [];
+  const [lightbox, setLightbox] = useState<LightboxState | null>(null);
   const hasCoords =
     typeof business.location?.lat === "number" && typeof business.location?.lng === "number";
+  const locationText = [business.location?.address, business.location?.moshav ?? business.location?.raw]
+    .filter(Boolean)
+    .join(", ");
+  const hasLocation = Boolean(locationText) || hasCoords;
+  const posts = getRecentPosts(business);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-4">
       {images.length > 0 ? (
         <div className="overflow-hidden rounded-2xl">
-          <img src={images[0]} alt={business.name} className="max-h-80 w-full object-cover" />
+          <img
+            src={images[0]}
+            alt={business.name}
+            className="max-h-80 w-full cursor-zoom-in object-cover"
+            onClick={() => setLightbox({ images, index: 0 })}
+          />
           {images.length > 1 && (
             <div className="mt-2 flex gap-2 overflow-x-auto">
-              {images.slice(1).map((url) => (
-                <img key={url} src={url} alt="" className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+              {images.slice(1).map((url, i) => (
+                <img
+                  key={url}
+                  src={url}
+                  alt=""
+                  className="h-20 w-20 shrink-0 cursor-zoom-in rounded-lg object-cover"
+                  onClick={() => setLightbox({ images, index: i + 1 })}
+                />
               ))}
             </div>
           )}
@@ -125,15 +148,6 @@ function BusinessDetail({ business }: { business: Business }) {
           </InfoRow>
         )}
 
-        {(business.location?.moshav || business.location?.address || business.location?.raw) && (
-          <InfoRow icon="📍" title="מיקום">
-            <p className="text-gray-700">
-              {business.location.address && <span>{business.location.address}, </span>}
-              {business.location.moshav ?? business.location.raw}
-            </p>
-          </InfoRow>
-        )}
-
         {business.phone && (
           <InfoRow icon="📞" title="טלפון">
             <div className="flex flex-wrap items-center gap-2">
@@ -151,64 +165,31 @@ function BusinessDetail({ business }: { business: Business }) {
             </div>
           </InfoRow>
         )}
-      </div>
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        <a
-          href={`https://www.google.com/maps/search/?api=1&query=${mapsQuery(business)}`}
-          target="_blank"
-          rel="noreferrer"
-          className="flex-1 rounded-xl bg-brand-600 px-4 py-2.5 text-center text-sm font-bold text-white hover:bg-brand-700"
-        >
-          ניווט ב‑Google Maps
-        </a>
-        {hasCoords && (
-          <a
-            href={`https://waze.com/ul?ll=${business.location.lat},${business.location.lng}&navigate=yes`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex-1 rounded-xl bg-white px-4 py-2.5 text-center text-sm font-bold text-brand-700 ring-1 ring-brand-300 hover:bg-brand-50"
-          >
-            ניווט ב‑Waze
-          </a>
+        {hasLocation && (
+          <InfoRow icon="📍" title="מיקום">
+            <div className="flex items-center gap-3">
+              {locationText && <p className="text-gray-700">{locationText}</p>}
+              <NavButtons business={business} className="ms-auto shrink-0" />
+            </div>
+          </InfoRow>
         )}
       </div>
 
-      {hasCoords && (
-        <div className="mt-4 h-56 overflow-hidden rounded-2xl ring-1 ring-gray-200">
-          <MapContainer
-            center={[business.location.lat!, business.location.lng!]}
-            zoom={14}
-            className="h-full w-full"
-            scrollWheelZoom={false}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <Marker
-              position={[business.location.lat!, business.location.lng!]}
-              icon={L.divIcon({
-                html: `<div class="cat-marker" style="background:${color}"><span>${emoji}</span></div>`,
-                className: "",
-                iconSize: [36, 36],
-                iconAnchor: [18, 36],
-              })}
-            />
-          </MapContainer>
-          <p className="bg-gray-50 px-3 py-1.5 text-center text-[0.7rem] text-gray-400">
-            המיקום מבוסס על היישוב ואינו בהכרח כתובת מדויקת
-          </p>
-        </div>
-      )}
-
-      {business.lastRawText && (
-        <details className="mt-5 rounded-2xl bg-white p-4 ring-1 ring-gray-100">
-          <summary className="cursor-pointer text-sm font-semibold text-gray-600">הפוסט המקורי</summary>
-          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-600">
-            {business.lastRawText}
-          </p>
-        </details>
+      {posts.length > 0 && (
+        <section className="mt-5">
+          <h2 className="mb-2 text-sm font-semibold text-gray-600">פרסומים אחרונים</h2>
+          <div className="space-y-2">
+            {posts.map((post, i) => (
+              <PostRow
+                key={post.sourceMessageId ?? i}
+                post={post}
+                defaultOpen={false}
+                onOpenImage={(set, index) => setLightbox({ images: set, index })}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
       {absoluteDate(business.lastPostedAt ?? business.lastUpdatedAt) && (
@@ -216,6 +197,152 @@ function BusinessDetail({ business }: { business: Business }) {
           המידע עודכן {relativeTime(business.lastPostedAt ?? business.lastUpdatedAt)} (
           {absoluteDate(business.lastPostedAt ?? business.lastUpdatedAt)})
         </p>
+      )}
+
+      {lightbox && (
+        <Lightbox
+          images={lightbox.images}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+          onIndex={(i) => setLightbox((s) => (s ? { ...s, index: i } : s))}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The stored recent posts, falling back to a single entry for legacy records. */
+function getRecentPosts(business: Business): RecentPost[] {
+  if (business.recentPosts && business.recentPosts.length > 0) return business.recentPosts;
+  if (business.lastRawText || (business.imageUrls?.length ?? 0) > 0) {
+    return [
+      {
+        text: business.lastRawText,
+        imageUrls: business.imageUrls,
+        postedAt: business.lastPostedAt ?? business.lastUpdatedAt,
+      },
+    ];
+  }
+  return [];
+}
+
+function PostRow({
+  post,
+  defaultOpen,
+  onOpenImage,
+}: {
+  post: RecentPost;
+  defaultOpen: boolean;
+  onOpenImage: (images: string[], index: number) => void;
+}) {
+  const imageUrls = post.imageUrls ?? [];
+  const date = shortDate(post.postedAt);
+  const rel = relativeTime(post.postedAt);
+  return (
+    <details className="rounded-2xl bg-white p-4 ring-1 ring-gray-100" open={defaultOpen}>
+      <summary className="cursor-pointer text-sm font-semibold text-gray-700">
+        {date ?? "פרסום"}
+        {rel && <span className="ms-2 text-xs font-normal text-gray-400">{rel}</span>}
+      </summary>
+      {post.text && (
+        <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-gray-600">{post.text}</p>
+      )}
+      {imageUrls.length > 0 && (
+        <div className="mt-2 flex gap-2 overflow-x-auto">
+          {imageUrls.map((url, k) => (
+            <img
+              key={url}
+              src={url}
+              alt=""
+              className="h-20 w-20 shrink-0 cursor-zoom-in rounded-lg object-cover"
+              onClick={() => onOpenImage(imageUrls, k)}
+            />
+          ))}
+        </div>
+      )}
+    </details>
+  );
+}
+
+function Lightbox({
+  images,
+  index,
+  onClose,
+  onIndex,
+}: {
+  images: string[];
+  index: number;
+  onClose: () => void;
+  onIndex: (i: number) => void;
+}) {
+  const multiple = images.length > 1;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") onIndex((index - 1 + images.length) % images.length);
+      else if (e.key === "ArrowRight") onIndex((index + 1) % images.length);
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [index, images.length, onClose, onIndex]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-white/40 p-4 backdrop-blur-md"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="סגור"
+        className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full bg-black/50 text-2xl leading-none text-white hover:bg-black/70"
+      >
+        ×
+      </button>
+
+      <img
+        src={images[index]}
+        alt=""
+        className="max-h-[90dvh] max-w-full rounded-lg object-contain"
+        onClick={(e) => e.stopPropagation()}
+      />
+
+      {multiple && (
+        <>
+          <button
+            type="button"
+            aria-label="הקודם"
+            onClick={(e) => {
+              e.stopPropagation();
+              onIndex((index - 1 + images.length) % images.length);
+            }}
+            className="absolute left-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-black/50 text-3xl leading-none text-white hover:bg-black/70"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            aria-label="הבא"
+            onClick={(e) => {
+              e.stopPropagation();
+              onIndex((index + 1) % images.length);
+            }}
+            className="absolute right-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full bg-black/50 text-3xl leading-none text-white hover:bg-black/70"
+          >
+            ›
+          </button>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
+            {index + 1} / {images.length}
+          </div>
+        </>
       )}
     </div>
   );
