@@ -102,12 +102,26 @@ For accurate Israeli addresses use Google (`GEOCODER_PROVIDER=google`). One-time
    AI Studio Gemini key.)
 5. In `server/.env` set `GEOCODER_PROVIDER=google` and `GEOCODING_API_KEY=<the key>`.
 
-After changing the gazetteer or the provider, fix already-saved records:
+After changing the gazetteer or the provider, fix already-saved records.
+
+With npm (local dev):
 
 ```bash
 npm run regeocode          # re-geocode every business and update Firestore
 npm run verify:moshavim    # audit gazetteer entries against OpenStreetMap
 ```
+
+On a Docker-only host (e.g. the always-on laptop) there's no npm; rebuild the image
+and run the compiled script in a one-off container instead:
+
+```bash
+docker compose up -d --build   # bake in new code + restart the server
+docker compose run --rm server node dist/scripts/regeocodeBusinesses.js
+# audit gazetteer:  docker compose run --rm server node dist/scripts/verifyMoshavim.js
+```
+
+The one-off container reuses `.env` + the mounted service-account key and doesn't
+publish ports, so it won't clash with the running server.
 
 If no key is set, address geocoding simply falls back to the moshav center - nothing breaks.
 
