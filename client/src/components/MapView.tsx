@@ -96,7 +96,9 @@ function RecenterOnUser({ position, fixCount }: { position: [number, number] | n
 export default function MapView({ businesses }: { businesses: Business[] }) {
   const navigate = useNavigate();
   const placed = useMemo(() => placeBusinesses(businesses), [businesses]);
-  const geo = useGeolocation(true);
+  // Don't auto-locate on load: the map should open fitted to all business markers.
+  // The "locate me" button still triggers a fix and recenters on demand.
+  const geo = useGeolocation(false);
 
   if (businesses.length === 0) {
     return <EmptyState title="לא נמצאו עסקים" hint="נסו לשנות את הסינון או החיפוש" />;

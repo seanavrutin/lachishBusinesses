@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
+import { adminRouter } from "./routes/admin.js";
 import { businessesRouter } from "./routes/businesses.js";
 import { whatsappRouter } from "./routes/whatsapp.js";
 
@@ -17,6 +18,7 @@ export function startApi(): void {
     res.json({ status: "ok", uptime: process.uptime() });
   });
 
+  app.use("/api/admin", adminRouter);
   app.use("/api/whatsapp", whatsappRouter);
   app.use("/api/businesses", businessesRouter);
 

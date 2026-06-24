@@ -52,6 +52,10 @@ const schema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default("gemini-3.1-flash-lite"),
 
+  // Admin: a single shared secret that gates write endpoints (edit/delete) from the
+  // UI's admin mode. Leave empty to disable all writes. Rotate by changing this value.
+  ADMIN_TOKEN: z.string().trim().optional(),
+
   // Firebase
   FIREBASE_PROJECT_ID: z.string().optional(),
   GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),

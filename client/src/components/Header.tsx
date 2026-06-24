@@ -1,3 +1,6 @@
+import { useRef, useState } from "react";
+import { useAdmin } from "../context/AdminContext";
+
 export type ViewMode = "list" | "map";
 
 interface HeaderProps {
@@ -7,16 +10,51 @@ interface HeaderProps {
   onQueryChange: (q: string) => void;
 }
 
+const UNLOCK_TAPS = 5;
+
 export default function Header({ view, onViewChange, query, onQueryChange }: HeaderProps) {
+  const { isAdmin, signIn, signOut } = useAdmin();
+  const [promptOpen, setPromptOpen] = useState(false);
+  const taps = useRef(0);
+  const tapTimer = useRef<number | null>(null);
+
+  // Secret unlock: tap the title a few times quickly to reveal the token prompt.
+  const handleTitleTap = () => {
+    if (isAdmin) return;
+    taps.current += 1;
+    if (tapTimer.current) window.clearTimeout(tapTimer.current);
+    tapTimer.current = window.setTimeout(() => {
+      taps.current = 0;
+    }, 1200);
+    if (taps.current >= UNLOCK_TAPS) {
+      taps.current = 0;
+      setPromptOpen(true);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/90 backdrop-blur">
       <div className="mx-auto max-w-3xl px-4">
-        <div className="flex items-center justify-center gap-2 py-2.5">
+        <div
+          className="flex select-none items-center justify-center gap-2 py-2.5"
+          onClick={handleTitleTap}
+        >
           <span className="text-xl" aria-hidden>
             🌾
           </span>
           <h1 className="text-lg font-extrabold text-brand-800">עסקים בלכיש</h1>
         </div>
+
+        {isAdmin && (
+          <div className="mb-2 flex items-center justify-center gap-2 text-xs">
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800 ring-1 ring-amber-200">
+              מצב ניהול פעיל
+            </span>
+            <button type="button" onClick={signOut} className="font-medium text-gray-500 hover:text-gray-700">
+              יציאה
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center gap-2 pb-3">
           <div className="relative flex-1">
@@ -56,7 +94,74 @@ export default function Header({ view, onViewChange, query, onQueryChange }: Hea
           <ViewToggle view={view} onViewChange={onViewChange} />
         </div>
       </div>
+
+      {promptOpen && <AdminPrompt onClose={() => setPromptOpen(false)} onSubmit={signIn} />}
     </header>
+  );
+}
+
+function AdminPrompt({
+  onClose,
+  onSubmit,
+}: {
+  onClose: () => void;
+  onSubmit: (token: string) => Promise<boolean>;
+}) {
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    const ok = await onSubmit(value);
+    setBusy(false);
+    if (ok) onClose();
+    else setError("טוקן שגוי");
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="w-full max-w-xs rounded-2xl bg-white p-5 shadow-xl"
+      >
+        <h2 className="mb-3 text-center text-base font-bold text-gray-800">כניסת מנהל</h2>
+        <input
+          type="password"
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="טוקן ניהול"
+          dir="ltr"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+        />
+        {error && <p className="mt-2 text-center text-sm text-red-600">{error}</p>}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="submit"
+            disabled={busy || !value.trim()}
+            className="flex-1 rounded-lg bg-brand-600 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {busy ? "בודק..." : "כניסה"}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100"
+          >
+            ביטול
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 

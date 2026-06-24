@@ -1,10 +1,12 @@
 import { Router } from "express";
 import {
+  deleteBusiness,
   getBusiness,
   listBusinesses,
   updateBusiness,
 } from "../../store/businesses.repo.js";
 import { getSignedUrl } from "../../store/storage.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
 import type { Business } from "../../types/index.js";
 
 export const businessesRouter = Router();
@@ -61,7 +63,7 @@ businessesRouter.get("/:id", async (req, res) => {
   }
 });
 
-businessesRouter.patch("/:id", async (req, res) => {
+businessesRouter.patch<{ id: string }>("/:id", requireAdmin, async (req, res) => {
   try {
     const existing = await getBusiness(req.params.id);
     if (!existing) {
@@ -74,6 +76,7 @@ businessesRouter.patch("/:id", async (req, res) => {
       "description",
       "openingHours",
       "phone",
+      "website",
       "location",
       "status",
     ];
@@ -85,6 +88,20 @@ businessesRouter.patch("/:id", async (req, res) => {
     }
     await updateBusiness(req.params.id, patch);
     res.json(await withImageUrls((await getBusiness(req.params.id))!));
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+businessesRouter.delete<{ id: string }>("/:id", requireAdmin, async (req, res) => {
+  try {
+    const existing = await getBusiness(req.params.id);
+    if (!existing) {
+      res.status(404).json({ error: "not found" });
+      return;
+    }
+    await deleteBusiness(req.params.id);
+    res.json({ ok: true, id: req.params.id });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

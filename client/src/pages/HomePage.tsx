@@ -5,6 +5,7 @@ import BusinessList from "../components/BusinessList";
 import MapView from "../components/MapView";
 import { Spinner } from "../components/ui";
 import { deriveCategories, useBusinesses } from "../hooks/useBusinesses";
+import { toDate } from "../lib/format";
 import type { Business } from "../types";
 
 function matchesQuery(b: Business, needle: string): boolean {
@@ -14,6 +15,11 @@ function matchesQuery(b: Business, needle: string): boolean {
     .join(" ")
     .toLowerCase();
   return haystack.includes(needle.toLowerCase());
+}
+
+/** Epoch ms of the latest post (falling back to our write time) for sorting. */
+function updatedMillis(b: Business): number {
+  return toDate(b.lastPostedAt ?? b.lastUpdatedAt)?.getTime() ?? 0;
 }
 
 export default function HomePage() {
@@ -34,11 +40,14 @@ export default function HomePage() {
 
   const filtered = useMemo(
     () =>
-      businesses.filter((b) => {
-        const catOk = selected.size === 0 || (b.categories ?? []).some((c) => selected.has(c));
-        const moshavOk = !moshav || b.location?.moshav === moshav;
-        return catOk && moshavOk && matchesQuery(b, query);
-      }),
+      businesses
+        .filter((b) => {
+          const catOk = selected.size === 0 || (b.categories ?? []).some((c) => selected.has(c));
+          const moshavOk = !moshav || b.location?.moshav === moshav;
+          return catOk && moshavOk && matchesQuery(b, query);
+        })
+        // Most recently updated first.
+        .sort((a, b) => updatedMillis(b) - updatedMillis(a)),
     [businesses, selected, moshav, query],
   );
 

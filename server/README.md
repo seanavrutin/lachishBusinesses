@@ -182,6 +182,24 @@ everything else is marked done and skipped. The chosen `postType` is stored on t
 `raw_messages` record so you can audit what was filtered and why. To surface more, widen the
 allowlist, e.g. `RELEVANT_POST_TYPES=business,event`.
 
+## Admin mode (edit / delete)
+
+The web UI has a hidden admin mode for fixing business details or removing bad entries,
+gated by a single shared secret (no accounts/login):
+
+1. Set `ADMIN_TOKEN` to a long random string in the server `.env` (leave it empty to disable
+   all writes entirely).
+2. In the UI, tap the **title** ("עסקים בלכיש") five times quickly to reveal a token prompt,
+   and paste the token. It's verified against `GET /api/admin/verify` and stored in the
+   browser's `localStorage`, so admin mode persists until you tap "יציאה".
+3. Once unlocked, each business page shows **ערוך פרטים** to edit fields (name, categories,
+   description, hours, phone, website, address/moshav, lat/lng) and a **delete** action.
+
+Writes are enforced **server-side**: `PATCH`/`DELETE /api/businesses/:id` require the
+`x-admin-token` header to match `ADMIN_TOKEN` (constant-time compare). The client-side gate
+only controls what's shown. Rotate the secret any time by changing `ADMIN_TOKEN` and
+restarting - previously saved tokens stop working immediately.
+
 ## Notes
 
 - Extraction = one multimodal Gemini call per message (text + image), validated with zod.

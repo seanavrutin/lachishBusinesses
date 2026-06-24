@@ -32,6 +32,10 @@ export async function getBusiness(id: string): Promise<Business | null> {
   return doc.exists ? ({ id: doc.id, ...(doc.data() as Business) }) : null;
 }
 
+export async function deleteBusiness(id: string): Promise<void> {
+  await col().doc(id).delete();
+}
+
 export async function findByMoshav(moshav: string): Promise<Business[]> {
   const snap = await col().where("location.moshav", "==", moshav).get();
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Business) }));

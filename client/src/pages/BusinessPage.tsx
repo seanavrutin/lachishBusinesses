@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { fetchBusiness, getCachedBusiness } from "../lib/api";
+import { deleteBusiness, fetchBusiness, getCachedBusiness, updateBusiness } from "../lib/api";
 import type { Business, RecentPost } from "../types";
+import { useAdmin } from "../context/AdminContext";
 import { styleForBusiness } from "../lib/categories";
 import { absoluteDate, relativeTime, shortDate } from "../lib/format";
 import { displayUrl, externalUrl, waLink } from "../lib/links";
@@ -72,16 +73,44 @@ export default function BusinessPage() {
           {error && <p className="max-w-sm text-sm text-gray-500">{error}</p>}
         </div>
       ) : (
-        <BusinessDetail business={business} />
+        <BusinessDetail
+          business={business}
+          onUpdated={setBusiness}
+          onDeleted={() => navigate("/")}
+        />
       )}
     </div>
   );
 }
 
-function BusinessDetail({ business }: { business: Business }) {
+function BusinessDetail({
+  business,
+  onUpdated,
+  onDeleted,
+}: {
+  business: Business;
+  onUpdated: (b: Business) => void;
+  onDeleted: () => void;
+}) {
+  const { isAdmin } = useAdmin();
+  const [editing, setEditing] = useState(false);
   const { emoji, color } = styleForBusiness(business.categories ?? []);
   const images = business.imageUrls ?? [];
   const [lightbox, setLightbox] = useState<LightboxState | null>(null);
+
+  if (editing) {
+    return (
+      <EditBusinessForm
+        business={business}
+        onCancel={() => setEditing(false)}
+        onSaved={(b) => {
+          onUpdated(b);
+          setEditing(false);
+        }}
+        onDeleted={onDeleted}
+      />
+    );
+  }
   const hasCoords =
     typeof business.location?.lat === "number" && typeof business.location?.lng === "number";
   const locationText = [business.location?.address, business.location?.moshav ?? business.location?.raw]
@@ -92,6 +121,18 @@ function BusinessDetail({ business }: { business: Business }) {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-4">
+      {isAdmin && (
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="rounded-full bg-amber-100 px-4 py-1.5 text-sm font-semibold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-200"
+          >
+            ערוך פרטים
+          </button>
+        </div>
+      )}
+
       {images.length > 0 ? (
         <div className="overflow-hidden rounded-2xl">
           <img
@@ -221,6 +262,197 @@ function BusinessDetail({ business }: { business: Business }) {
           onIndex={(i) => setLightbox((s) => (s ? { ...s, index: i } : s))}
         />
       )}
+    </div>
+  );
+}
+
+const EDIT_INPUT =
+  "w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-semibold text-gray-500">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function EditBusinessForm({
+  business,
+  onCancel,
+  onSaved,
+  onDeleted,
+}: {
+  business: Business;
+  onCancel: () => void;
+  onSaved: (b: Business) => void;
+  onDeleted: () => void;
+}) {
+  const [name, setName] = useState(business.name ?? "");
+  const [description, setDescription] = useState(business.description ?? "");
+  const [categories, setCategories] = useState((business.categories ?? []).join(", "));
+  const [openingHours, setOpeningHours] = useState(business.openingHours ?? "");
+  const [phone, setPhone] = useState(business.phone ?? "");
+  const [website, setWebsite] = useState(business.website ?? "");
+  const [address, setAddress] = useState(business.location?.address ?? "");
+  const [moshav, setMoshav] = useState(business.location?.moshav ?? "");
+  const [lat, setLat] = useState(business.location?.lat != null ? String(business.location.lat) : "");
+  const [lng, setLng] = useState(business.location?.lng != null ? String(business.location.lng) : "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const numOrUndef = (v: string): number | undefined => {
+    const n = Number(v.trim());
+    return v.trim() !== "" && Number.isFinite(n) ? n : undefined;
+  };
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError("שם העסק הוא שדה חובה");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const patch: Partial<Business> = {
+      name: name.trim(),
+      description: description.trim() || undefined,
+      categories: categories.split(",").map((c) => c.trim()).filter(Boolean),
+      openingHours: openingHours.trim() || undefined,
+      phone: phone.trim() || undefined,
+      website: website.trim() || undefined,
+      location: {
+        ...business.location,
+        address: address.trim() || undefined,
+        moshav: moshav.trim() || undefined,
+        lat: numOrUndef(lat),
+        lng: numOrUndef(lng),
+      },
+    };
+    try {
+      const updated = await updateBusiness(business.id, patch);
+      onSaved(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteBusiness(business.id);
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-4">
+      <h1 className="mb-3 text-lg font-bold text-gray-800">עריכת עסק</h1>
+      <form onSubmit={save} className="space-y-3">
+        <Field label="שם">
+          <input className={EDIT_INPUT} value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="קטגוריות (מופרדות בפסיק)">
+          <input className={EDIT_INPUT} value={categories} onChange={(e) => setCategories(e.target.value)} />
+        </Field>
+        <Field label="תיאור">
+          <textarea
+            className={EDIT_INPUT}
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </Field>
+        <Field label="שעות פתיחה">
+          <textarea
+            className={EDIT_INPUT}
+            rows={2}
+            value={openingHours}
+            onChange={(e) => setOpeningHours(e.target.value)}
+          />
+        </Field>
+        <Field label="טלפון">
+          <input className={EDIT_INPUT} dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </Field>
+        <Field label="אתר / קישור">
+          <input className={EDIT_INPUT} dir="ltr" value={website} onChange={(e) => setWebsite(e.target.value)} />
+        </Field>
+        <Field label="כתובת">
+          <input className={EDIT_INPUT} value={address} onChange={(e) => setAddress(e.target.value)} />
+        </Field>
+        <Field label="מושב">
+          <input className={EDIT_INPUT} value={moshav} onChange={(e) => setMoshav(e.target.value)} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="קו רוחב (lat)">
+            <input className={EDIT_INPUT} dir="ltr" inputMode="decimal" value={lat} onChange={(e) => setLat(e.target.value)} />
+          </Field>
+          <Field label="קו אורך (lng)">
+            <input className={EDIT_INPUT} dir="ltr" inputMode="decimal" value={lng} onChange={(e) => setLng(e.target.value)} />
+          </Field>
+        </div>
+
+        {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            type="submit"
+            disabled={busy}
+            className="flex-1 rounded-lg bg-brand-600 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            {busy ? "שומר..." : "שמירה"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="rounded-lg px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-100"
+          >
+            ביטול
+          </button>
+        </div>
+      </form>
+
+      <div className="mt-6 border-t border-gray-200 pt-4">
+        {!confirmDelete ? (
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            className="text-sm font-semibold text-red-600 hover:underline"
+          >
+            מחיקת העסק
+          </button>
+        ) : (
+          <div className="rounded-lg bg-red-50 p-3 ring-1 ring-red-100">
+            <p className="mb-2 text-sm text-red-700">למחוק את העסק לצמיתות? לא ניתן לשחזר.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={remove}
+                disabled={busy}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {busy ? "מוחק..." : "כן, מחק"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(false)}
+                disabled={busy}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
