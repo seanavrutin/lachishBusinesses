@@ -1,6 +1,11 @@
 import { env } from "../config/env.js";
 import { logger } from "../utils/logger.js";
 import { extractBusiness } from "../extraction/gemini.js";
+import {
+  canonicalizeCategories,
+  getKnownCategories,
+  rememberCategories,
+} from "../extraction/categories.js";
 import type { BusinessExtraction } from "../extraction/schema.js";
 import { geocode } from "../geocode/geocoder.js";
 import {
@@ -68,12 +73,23 @@ async function processOne(message: RawMessage): Promise<void> {
       images.push({ data, mimeType: mimeForPath(path) });
     }
 
-    const extraction = await extractBusiness({ text: message.text, images });
+    const knownCategories = await getKnownCategories();
+    const extraction = await extractBusiness({ text: message.text, images, knownCategories });
 
-    if (!extraction.isBusiness || !extraction.name) {
-      await updateRawMessage(id, { status: "done", error: "not a business listing" });
-      logger.info({ id }, "Message skipped (not a business)");
+    const relevant = env.RELEVANT_POST_TYPES.includes(extraction.postType);
+    if (!relevant || !extraction.name) {
+      const reason = !relevant ? `filtered: postType=${extraction.postType}` : "no business name";
+      await updateRawMessage(id, { status: "done", postType: extraction.postType, error: reason });
+      logger.info({ id, postType: extraction.postType, name: extraction.name }, "Message skipped (not a relevant listing)");
       return;
+    }
+
+    // Keep categories consistent: snap to existing wording and cap at 1-2.
+    const rawCategories = extraction.categories ?? [];
+    extraction.categories = canonicalizeCategories(rawCategories, knownCategories);
+    rememberCategories(extraction.categories);
+    if (rawCategories.length !== extraction.categories.length) {
+      logger.debug({ id, rawCategories, categories: extraction.categories }, "Normalized categories");
     }
 
     const moshav = extraction.location.moshav ?? undefined;
@@ -92,8 +108,8 @@ async function processOne(message: RawMessage): Promise<void> {
       ? await applyUpdate(match.id!, extraction, geo, message)
       : await createNew(extraction, geo, message);
 
-    await updateRawMessage(id, { status: "done", businessId, error: undefined });
-    logger.info({ id, businessId, updated: !!match }, "Processed business");
+    await updateRawMessage(id, { status: "done", postType: extraction.postType, businessId, error: undefined });
+    logger.info({ id, businessId, postType: extraction.postType, updated: !!match }, "Processed business");
   } catch (err) {
     const attempts = (message.attempts ?? 0) + 1;
     const errorText = err instanceof Error ? err.message : String(err);
@@ -179,6 +195,7 @@ async function createNew(
     description: extraction.description ?? undefined,
     openingHours: extraction.openingHoursRaw ?? undefined,
     phone: extraction.phone ?? undefined,
+    website: extraction.website ?? undefined,
     location: buildLocation(extraction, geo),
     images: message.imagePaths ?? [],
     lastRawText: message.text || undefined,
@@ -218,6 +235,7 @@ async function applyUpdate(
   if (extraction.description) patch.description = extraction.description;
   if (extraction.openingHoursRaw) patch.openingHours = extraction.openingHoursRaw;
   if (extraction.phone) patch.phone = extraction.phone;
+  if (extraction.website) patch.website = extraction.website;
 
   logger.debug({ businessId, patch }, "Updating existing business");
   await updateBusiness(businessId, patch);

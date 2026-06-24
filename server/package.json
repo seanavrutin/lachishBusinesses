@@ -18,7 +18,8 @@
     "probe:media": "tsx src/scripts/probeMedia.ts",
     "verify:moshavim": "tsx src/scripts/verifyMoshavim.ts",
     "regeocode": "tsx src/scripts/regeocodeBusinesses.ts",
-    "backfill:posts": "tsx src/scripts/backfillRecentPosts.ts"
+    "backfill:posts": "tsx src/scripts/backfillRecentPosts.ts",
+    "recategorize": "tsx src/scripts/recategorizeBusinesses.ts"
   },
   "dependencies": {
     "@google/genai": "^2.9.0",

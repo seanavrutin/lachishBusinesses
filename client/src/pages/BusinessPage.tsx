@@ -4,7 +4,7 @@ import { fetchBusiness, getCachedBusiness } from "../lib/api";
 import type { Business, RecentPost } from "../types";
 import { styleForBusiness } from "../lib/categories";
 import { absoluteDate, relativeTime, shortDate } from "../lib/format";
-import { waLink } from "../lib/links";
+import { displayUrl, externalUrl, waLink } from "../lib/links";
 import { CategoryTag, Spinner, StatusBadge, UpdatedBadge } from "../components/ui";
 import { NavButtons } from "../components/NavButtons";
 
@@ -163,6 +163,20 @@ function BusinessDetail({ business }: { business: Business }) {
                 וואטסאפ
               </a>
             </div>
+          </InfoRow>
+        )}
+
+        {business.website && (
+          <InfoRow icon="🌐" title="אתר / הזמנות">
+            <a
+              href={externalUrl(business.website)}
+              target="_blank"
+              rel="noreferrer"
+              className="break-all font-medium text-brand-700 hover:underline"
+              dir="ltr"
+            >
+              {displayUrl(business.website)}
+            </a>
           </InfoRow>
         )}
 

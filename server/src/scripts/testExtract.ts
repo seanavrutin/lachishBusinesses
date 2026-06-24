@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { env } from "../config/env.js";
 import { extractBusiness } from "../extraction/gemini.js";
+import { canonicalizeCategories, getKnownCategories } from "../extraction/categories.js";
 import { geocode } from "../geocode/geocoder.js";
 import { mimeForPath } from "../store/storage.js";
 
@@ -39,7 +40,9 @@ async function main(): Promise<void> {
   if (imagePath) console.log(`[image] ${imagePath}`);
 
   console.log("\nCalling Gemini (" + env.GEMINI_MODEL + ")...");
-  const extraction = await extractBusiness({ text, images });
+  const knownCategories = await getKnownCategories();
+  const extraction = await extractBusiness({ text, images, knownCategories });
+  extraction.categories = canonicalizeCategories(extraction.categories ?? [], knownCategories);
   console.log("\n--- EXTRACTION ---");
   console.log(JSON.stringify(extraction, null, 2));
 
@@ -59,6 +62,7 @@ async function main(): Promise<void> {
       description: extraction.description ?? undefined,
       openingHours: extraction.openingHoursRaw ?? undefined,
       phone: extraction.phone ?? undefined,
+      website: extraction.website ?? undefined,
       location: {
         raw: extraction.location.raw ?? undefined,
         moshav: extraction.location.moshav ?? undefined,

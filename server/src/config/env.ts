@@ -67,6 +67,17 @@ const schema = z.object({
   WORKER_BATCH_SIZE: z.coerce.number().default(5),
   WORKER_MAX_ATTEMPTS: z.coerce.number().default(5),
   MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.5),
+  // Which classified post types become directory listings; everything else is filtered
+  // out as noise. Types: business | job | event | school | other. Comma-separated.
+  RELEVANT_POST_TYPES: z
+    .string()
+    .default("business")
+    .transform((v) =>
+      v
+        .split(",")
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
+    ),
 });
 
 export const env = schema.parse(process.env);

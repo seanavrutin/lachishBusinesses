@@ -27,6 +27,8 @@ export interface Business {
   /** Opening hours exactly as written in the latest post (Hebrew kept). */
   openingHours?: string;
   phone?: string;
+  /** A URL from the post: website, online-ordering/delivery link, menu, or social page. */
+  website?: string;
   location: BusinessLocation;
   /** Storage paths of the latest post's image(s). */
   images: string[];
@@ -61,6 +63,8 @@ export interface RawMessage {
   /** Earliest epoch ms at which this message should be retried. */
   nextAttemptAt?: number;
   error?: string;
+  /** Classified intent of the post (for auditing why it was kept/filtered). */
+  postType?: string;
   businessId?: string;
   createdAt?: FirebaseFirestore.Timestamp | Date;
   updatedAt?: FirebaseFirestore.Timestamp | Date;

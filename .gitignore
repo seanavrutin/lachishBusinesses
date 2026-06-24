@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Firebase Hosting deploy cache
+.firebase/
+
 # WhatsApp (Baileys) session state - NEVER commit
 server/auth/
 auth/

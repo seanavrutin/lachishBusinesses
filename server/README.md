@@ -141,6 +141,47 @@ docker compose run --rm server node dist/scripts/backfillRecentPosts.js   # Dock
 
 It's safe to re-run (it overwrites `recentPosts` each time).
 
+## Categories
+
+Each business keeps **1 category (2 at most)**. During extraction the model is given the
+categories already in use (most common first) plus a curated seed list, and told to **reuse
+an existing one** when it fits rather than invent new tags. The result is then de-duped,
+snapped to the existing spelling, and hard-capped at two before saving. This keeps the tag
+set small and consistent instead of growing endlessly.
+
+To consolidate categories on businesses created before this change, re-classify them against
+a controlled vocabulary (frequent existing categories + seeds). It's a dry run by default:
+
+```bash
+npm run recategorize                 # show proposed [old] -> [new] changes, write nothing
+npm run recategorize -- --apply      # actually update Firestore
+# tune the vocabulary:  -- --min=3 (min uses to keep an existing tag) --top=30
+docker compose run --rm server node dist/scripts/recategorizeBusinesses.js --apply   # Docker-only host
+```
+
+Only the `categories` field is touched.
+
+## Filtering out noise (post types)
+
+The group also carries non-listings: job ads (`דרושים`), school/childcare posts, camps
+(`קייטנה`), notices, etc. Rather than stuffing exclusion rules into the prompt, the model
+classifies each post's **primary purpose** into one bucket (decided by what the post asks the
+reader to do), checked in order:
+
+`job | school | event | business | other`
+
+- **job** — hiring / workers wanted, any sector (reader = employee).
+- **school** — anything about education or childcare: schools, kindergartens, gan/משפחתון/צהרון,
+  קייטנות, חוגים, courses, registration, schedules (including a private gan offering places).
+- **event** — a one-time, non-school happening.
+- **business** — an ongoing local business/service offering something to customers.
+- **other** — greetings, lost & found, private second-hand sales, anything else.
+
+Only the types in `RELEVANT_POST_TYPES` (default `business`) become directory listings;
+everything else is marked done and skipped. The chosen `postType` is stored on the
+`raw_messages` record so you can audit what was filtered and why. To surface more, widen the
+allowlist, e.g. `RELEVANT_POST_TYPES=business,event`.
+
 ## Notes
 
 - Extraction = one multimodal Gemini call per message (text + image), validated with zod.

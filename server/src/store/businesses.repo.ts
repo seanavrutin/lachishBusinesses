@@ -37,6 +37,21 @@ export async function findByMoshav(moshav: string): Promise<Business[]> {
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Business) }));
 }
 
+/** Distinct categories currently in use, mapped to how many businesses use each. */
+export async function listCategoryCounts(): Promise<Map<string, number>> {
+  // Only pull the `categories` field to keep this cheap even as the collection grows.
+  const snap = await col().select("categories").get();
+  const counts = new Map<string, number>();
+  for (const doc of snap.docs) {
+    const cats = (doc.data().categories as string[] | undefined) ?? [];
+    for (const c of cats) {
+      const tag = c?.trim();
+      if (tag) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
 export interface BusinessFilter {
   category?: string;
   moshav?: string;

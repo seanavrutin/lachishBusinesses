@@ -34,6 +34,8 @@ export interface Business {
   /** Opening hours exactly as written in the latest post (Hebrew kept). */
   openingHours?: string;
   phone?: string;
+  /** A URL from the post: website, online-ordering/delivery link, menu, or social page. */
+  website?: string;
   location: BusinessLocation;
   /** Firebase Storage paths of the latest post's image(s). */
   images?: string[];

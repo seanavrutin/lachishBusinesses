@@ -25,3 +25,18 @@ export function waLink(phone: string): string {
   const intl = digits.startsWith("0") ? `972${digits.slice(1)}` : digits;
   return `https://wa.me/${intl}`;
 }
+
+/** Ensures a URL has a scheme so it works as an href. */
+export function externalUrl(url: string): string {
+  const trimmed = url.trim();
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+}
+
+/** Compact label for a URL: drops scheme, www, and any trailing slash. */
+export function displayUrl(url: string): string {
+  return url
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/\/+$/, "");
+}
