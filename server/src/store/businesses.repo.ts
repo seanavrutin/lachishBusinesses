@@ -41,6 +41,24 @@ export async function findByMoshav(moshav: string): Promise<Business[]> {
   return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Business) }));
 }
 
+/** Lightweight candidate used by dedupe; only the fields needed to match. */
+export type DedupeCandidate = Pick<
+  Business,
+  "id" | "name" | "location" | "lastPostedAt" | "lastUpdatedAt"
+>;
+
+/**
+ * Fetches every business projected to just the fields dedupe needs. The dataset
+ * is small, so a single scan is cheaper and far more reliable than gating on an
+ * exact moshav match (a missing/misspelled moshav used to spawn duplicates).
+ */
+export async function listForDedupe(): Promise<DedupeCandidate[]> {
+  const snap = await col()
+    .select("name", "location.moshav", "lastPostedAt", "lastUpdatedAt")
+    .get();
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as DedupeCandidate) }));
+}
+
 /** Distinct categories currently in use, mapped to how many businesses use each. */
 export async function listCategoryCounts(): Promise<Map<string, number>> {
   // Only pull the `categories` field to keep this cheap even as the collection grows.

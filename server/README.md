@@ -141,6 +141,22 @@ docker compose run --rm server node dist/scripts/backfillRecentPosts.js   # Dock
 
 It's safe to re-run (it overwrites `recentPosts` each time).
 
+## Matching posts to existing businesses (dedupe)
+
+When a post is processed, it's matched against existing businesses **by name across the
+whole directory** — moshav is only a tie-breaker, never a gate (a missing or misspelled
+moshav used to spawn duplicates). Matching is name-only (no phone):
+
+1. **Exact** normalized name (diacritics/case/spacing ignored).
+2. **Conservative fuzzy** — every word of the shorter name appears in the longer one, or the
+   two share ≥70% of their words, *and* they share a distinctive (3+ char) word. This catches
+   "מאפיית רוזנבלט" ↔ "רוזנבלט" but won't merge two businesses that only share a generic word
+   like "מאפיה". It errs toward **not** merging; near-duplicates can be removed in admin mode.
+
+When a post matches an existing business, the latest post wins for the headline fields (main
+image — replaced only if the new post has one — description, hours, name, location, categories)
+while the previous photo/text stay visible under "פרסומים אחרונים".
+
 ## Categories
 
 Each business keeps **1 category (2 at most)**. During extraction the model is given the
